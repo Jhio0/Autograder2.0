@@ -1,0 +1,18 @@
+# Set up Flask app
+FROM python:3.9
+WORKDIR /app
+
+# Copy the requirements file and install dependencies
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+# Copy the necessary directories and files
+COPY ./app/scripts /app/scripts
+COPY key.json /app/key.json
+
+# Set the environment variable for Google Cloud credentials
+ENV GOOGLE_APPLICATION_CREDENTIALS="/app/key.json"
+
+EXPOSE 8080
+WORKDIR /app/scripts
+CMD ["gunicorn", "-b", ":8080", "app:app"]
