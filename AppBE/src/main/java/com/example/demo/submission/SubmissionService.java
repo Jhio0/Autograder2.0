@@ -35,8 +35,7 @@ public class SubmissionService {
         resultSubmissionDTO.setSubmissionId(savedSubmission.getSubmissionId());
 
         // Create the ResultSubmission and save it (this will also save test cases)
-        ResultSubmissionsDTO createdResultSubmission = resultSubmissionsService.createResultSubmission(resultSubmissionDTO);
-
+        resultSubmissionsService.createResultSubmission(resultSubmissionDTO);
         return savedSubmission;
     }
 

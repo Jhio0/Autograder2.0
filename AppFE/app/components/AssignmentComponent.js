@@ -29,7 +29,7 @@ export default function AssignmentComponent({selectedAssignment, assignmentNumbe
     const clerk = useClerk();
 
     const [submissionDate, setSubmissionDate] = useState('');
-    const [fileSubmission, setFileSubmission] = useState('');
+    const [fileSubmission, setFileSubmission] = useState(null);
     const [totalGrade, setTotalGrade] = useState('');
     const [studentId, setStudentId] = useState('');
     const [assignmentId, setAssignmentId] = useState('');
@@ -67,26 +67,29 @@ export default function AssignmentComponent({selectedAssignment, assignmentNumbe
     const handleFileChange = (e) => {
       const uploadedFile = e.target.files[0];
       setFile(uploadedFile);
+      setFileSubmission(uploadedFile);
       setUploadMessage("File uploaded, Ready to Submit");
       setSubmitted(false);
     };
   
     const handleSubmit = async () => {
       const formData = new FormData();
-  
-      // If the SQL code is provided from the editor, create a Blob
+
+      // Check for SQL code first
       if (sqlCode) {
         const blob = new Blob([sqlCode], { type: "text/sql" });
-        formData.append("file", blob, "editor.sql"); // Using a default name
+        formData.append("file", blob, "editor.sql");
       } else if (file) {
         formData.append("file", file);
       } else {
         alert("Please enter SQL code or select a file to upload");
         return;
       }
-  
+
       try {
         console.log("Starting file upload...");
+
+        // Upload the file
         const response = await axios.post(
           `http://localhost:3001/api/submission/${selectedAssignment}`,
           formData,
@@ -94,79 +97,88 @@ export default function AssignmentComponent({selectedAssignment, assignmentNumbe
             headers: { "Content-Type": "multipart/form-data" },
           }
         );
-  
+
+        // Handle response
         const data = response.data;
         console.log("Server response:", data);
-  
+
         if (data.error) {
           console.error(data.error);
           alert(data.error);
           return;
         }
-        const testResultsData = data.testResultData || [];
-        const formattedTestResults = testResultsData.map((query) => {
-          const queryKey = Object.keys(query)[0];
-          const results = query[queryKey];
-  
-          return {
-            name: queryKey,
-            order_match: results.order_match,
-            content_match: results.content_match,
-            row_count_match: results.row_count_match,
-            column_count_match: results.column_count_match,
-            column_names_match: results.column_names_match,
-            column_names_score: results.column_names_score,
-            column_order_match: results.column_order_match,
-            actualResultTable: results.actualResultTable,
-            expectedResultTable: results.expectedResultTable,
-          };
-        });
-  
-        // Update states with submission results
-        const gradePercentage = parseFloat(data.gradePercentage.toFixed(2));
-        setProgress(gradePercentage);
-        setFailures(data.failures || 0);
-        setTestResults(formattedTestResults);
-        setPointsObtained(data.points_obtained || 0);
-        setTotalPoints(data.total_points || 0);
-        setTotalGrade(gradePercentage);
-        setStudentId(customerId);
-        setAssignmentId(assignmentNumber);
 
-        // Set submission date
-        const formattedDate = format(new Date(), 'yyyy-MM-dd');
-        setSubmissionDate(formattedDate);
-        console.log(file);
-        // Create submissionData object with the correct values
-        const submissionData = {
-            submissionDate: formattedDate,
-            fileSubmission: sqlCode ? new Blob([sqlCode], { type: "text/sql" }) : file,
-            totalGrade: gradePercentage,
-            studentId: customerId,
-            assignmentId: assignmentNumber,
-        };
-
-        console.log(submissionData)
-        
-        const responseSubmit = await axios.post('http://localhost:3001/api/submissions', submissionData,
-          {
-            headers: { "Content-Type": "multipart/form-data" },
-          }
-        );
-            console.log('Submission successful:', responseSubmit.data);
-
-
-  
+        // Process results and update state
+        processResults(data);
         setSubmitted(true);
+
+        setFile(null);
+        setFileSubmission(null);
+        setUploadMessage("Drag and Drop File to Submit");
       } catch (error) {
         console.error("Error uploading submission file:", error);
         alert("There was an unexpected error. Please try again.");
       }
-
-
-
     };
-  
+
+    const processResults = (data) => {
+      const testResultsData = data.testResultData || [];
+      const formattedTestResults = testResultsData.map((query) => {
+        const queryKey = Object.keys(query)[0];
+        const results = query[queryKey];
+        return {
+          name: queryKey,
+          order_match: results.order_match,
+          content_match: results.content_match,
+          row_count_match: results.row_count_match,
+          column_count_match: results.column_count_match,
+          column_names_match: results.column_names_match,
+          column_names_score: results.column_names_score,
+          column_order_match: results.column_order_match,
+          actualResultTable: results.actualResultTable,
+          expectedResultTable: results.expectedResultTable,
+        };
+      });
+
+      // Update states with submission results
+      const gradePercentage = parseFloat(data.gradePercentage.toFixed(2));
+      setProgress(gradePercentage);
+      setFailures(data.failures || 0);
+      setTestResults(formattedTestResults);
+      setPointsObtained(data.points_obtained || 0);
+      setTotalPoints(data.total_points || 0);
+      setTotalGrade(gradePercentage);
+      setStudentId(customerId);
+      setAssignmentId(assignmentNumber);
+      
+      // Set submission date
+      const formattedDate = format(new Date(), 'yyyy-MM-dd');
+      setSubmissionDate(formattedDate);
+
+      // Prepare submission data
+      const submissionData = {
+        submissionDate: formattedDate,
+        fileSubmission: sqlCode ? new Blob([sqlCode], { type: "text/sql" }) : fileSubmission,
+        totalGrade: gradePercentage,
+        studentId: customerId,
+        assignmentId: assignmentNumber,
+      };
+
+      // Submit the data to the backend
+      submitFinalData(submissionData);
+    };
+
+    const submitFinalData = async (submissionData) => {
+      try {
+        const responseSubmit = await axios.post('http://localhost:3001/api/submissions', submissionData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        console.log('Submission successful:', responseSubmit.data);
+      } catch (error) {
+        console.error("Error during final submission:", error);
+        alert("There was an error submitting the final data.");
+      }
+    };
     const generateSummary = () => {
       const percentagePassed = progress;
       // const failedTests = testResults.failures;

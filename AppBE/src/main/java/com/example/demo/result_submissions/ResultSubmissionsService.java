@@ -75,8 +75,10 @@ public class ResultSubmissionsService {
                             testCase.setResultSubmissionId(resultSubmissions.getResultSubmissionId());
                             testCase.setTestResults(jsonResult); // This should be a JSON string
 
+
                             // Use a Long type for testCaseId
                             testCase.setTestCaseId((long) i);
+
                             resultSubmissionTestCasesService.saveTestCase(testCase);
                         } catch (JsonProcessingException e) {
                             // Handle JSON processing exception
